@@ -4,7 +4,8 @@ from scipy.sparse import block_diag
 import time
 import matplotlib.pyplot as plt
 
-def one_SQA_run(J, h, trans_fld_sched, M, T, field_cycling = 1, sd = None, init_state = None, return_pauli_z = False, enable_global_move = False):
+
+def one_SQA_run_new(J, h, trans_fld_sched, M, T, field_cycling = 1, sd = None, init_state = None, return_pauli_z = False, enable_global_move = False):
     """
     One path-integral Monte Carlo simulated quantum annealing run over the full transverse field strength schedule.
     The goal is to find a state such that sum(J[i, j]*state[i]*state[j]) + sum(h[i]*state[i]) is minimized.
@@ -34,6 +35,7 @@ def one_SQA_run(J, h, trans_fld_sched, M, T, field_cycling = 1, sd = None, init_
     J_n = J * norm_coef
     h_n = h * norm_coef
 
+
     N = J_n.shape[0]
 
     J_n = 0.5 * (J_n + J_n.T)
@@ -44,62 +46,97 @@ def one_SQA_run(J, h, trans_fld_sched, M, T, field_cycling = 1, sd = None, init_
     Jp_terms = 0.5 * (Jp_terms + Jp_terms.T)
 
     steps = len(trans_fld_sched)
+    # Jp_increase_rate = trans_fld_sched[1] - trans_fld_sched[0]
     T_decrement = T / field_cycling
 
-    # flip_count = 0
-    # non_flip_count = 0
+    if init_state is None:
+        state = 2 * rng.binomial(1, 0.5, N*M) - np.ones(N*M)
+    else:
+        state = np.tile(init_state, M)
+
+    dE = np.zeros(N*M)
+    Jp_coef = -0.5 * T * np.log(np.tanh(trans_fld_sched[0] / (M * T)))
+    for flip in range(N*M):
+        dE[flip] = -4 * (j[flip] + Jp_coef * Jp_terms[flip]).dot(state) * state[flip] - 2 * h_extended[flip] * state[flip]
 
     # Annealing
     for cycle in range(field_cycling):
-        if init_state is None:
-            state = 2 * rng.binomial(1, 0.5, N*M) - np.ones(N*M)
-        else:
-            state = np.tile(init_state, M)
 
         for Gamma in trans_fld_sched[0::field_cycling]:
+            Jp_last = Jp_coef
             Jp_coef = -0.5 * T * np.log(np.tanh(Gamma / (M * T)))
-            # Jp_coef = 0
+            Jp_increment = Jp_coef - Jp_last
+
+            # Update Jp terms in dE
+            for flip in range(N*M):
+                flip_layer = flip // N
+                flip_pos = flip % N
+                flip_below = (flip_layer - 1) % M * N + flip_pos
+                flip_above = (flip_layer + 1) % M * N + flip_pos
+                dE[flip] += -4 * Jp_increment * state[flip] * (state[flip_below] + state[flip_above])
 
             # Global move
             if enable_global_move:
-                candidate = 0
-                delta_E_min = -4 * j[0].dot(state) * state[0] - 2 * h_extended[0] * state[0]
-                for flip_pos in range(N):
-                    delta_E = 0
-                    for flip_replica in range(M):
-                        flip = N * flip_replica + flip_pos
-                        delta_E += -4 * j[flip].dot(state) * state[flip] - 2 * h_extended[flip] * state[flip]
-                    if delta_E < delta_E_min:
-                        delta_E_min = delta_E
-                        candidate = flip_pos
+                candidate_pos = 0
+                dE_min = 0
+                for layer in range(M):
+                    dE_min += dE[layer * N]
+                for pos in range(N):
+                    dE_temp = 0
+                    for layer in range(M):
+                        dE_temp += dE[layer * N + pos]
+                    if dE_temp < dE_min:
+                        dE_min = dE_temp
+                        candidate_pos = pos
 
-                if rng.binomial(1, np.minimum(np.exp(-delta_E_min/T), 1.)):
-                    for flip_replica in range(M):
-                        flip = N * flip_replica + candidate
+                if rng.binomial(1, np.minimum(np.exp(-dE_min/T), 1.)):
+                    for layer in range(M):
+                        flip = N * layer + candidate_pos
                         state[flip] *= -1
+
+                        # Update dE (N spins at the same layer for every spins)
+                        for flip_to_update in range(N*layer, N*(layer+1)):
+                            if flip_to_update == flip:
+                                dE[flip_to_update] *= -1
+                            else:
+                                dE[flip_to_update] += -8 * j[flip_to_update][flip] * state[flip_to_update] * state[flip]
+
 
             # Local move
             for flip in range(N*M):
-                delta_E = -4 * (j[flip] + Jp_coef * Jp_terms[flip]).dot(state) * state[flip] - 2 * h_extended[flip] * state[flip]
-                if rng.binomial(1, np.minimum(np.exp(-delta_E/T), 1.)):
+                if rng.binomial(1, np.minimum(np.exp(-dE[flip]/T), 1.)):
                     state[flip] *= -1
-                #     flip_count += 1
-                # else:
-                #     non_flip_count += 1
+
+                    # Update dE (N spins at the same layer and 2 spins at the layer right above/below it)
+                    flip_layer = flip // N
+                    flip_pos = flip % N
+                    for flip_to_update in range(N*flip_layer, N*(flip_layer+1)):
+                        if flip_to_update == flip:
+                            dE[flip_to_update] *= -1
+                        else:
+                            dE[flip_to_update] += -8 * j[flip_to_update][flip] * state[flip_to_update] * state[flip]
+
+                    flip_to_update1 = (flip_layer - 1) % M * N + flip_pos
+                    flip_to_update2 = (flip_layer + 1) % M * N + flip_pos
+                    dE[flip_to_update1] += -8 * Jp_coef * state[flip] * state[flip_to_update1]
+                    dE[flip_to_update2] += -8 * Jp_coef * state[flip] * state[flip_to_update2]
+
+            
 
         # Field-cycling
-        if cycle != field_cycling - 1:
-            T -= T_decrement
-            for Gamma in trans_fld_sched[-1::-100 * field_cycling]:
-                Jp_coef = -0.5 * T * np.log(np.tanh(Gamma / (M * T)))
+        # if cycle != field_cycling - 1:
+        #     T -= T_decrement
+        #     for Gamma in trans_fld_sched[-1::-100 * field_cycling]:
+        #         Jp_coef = -0.5 * T * np.log(np.tanh(Gamma / (M * T)))
 
-                for flip in range(N*M):
-                    delta_E = -4 * (j[flip] + Jp_coef * Jp_terms[flip]).dot(state) * state[flip] - 2 * h_extended[flip] * state[flip]
-                    if rng.binomial(1, np.minimum(np.exp(-delta_E/T), 1.)):
-                        state[flip] *= -1
+        #         for flip in range(N*M):
+        #             delta_E = -4 * (j[flip] + Jp_coef * Jp_terms[flip]).dot(state) * state[flip] - 2 * h_extended[flip] * state[flip]
+        #             if rng.binomial(1, np.minimum(np.exp(-delta_E/T), 1.)):
+        #                 state[flip] *= -1
 
 
         state = [int(i) for i in state]
+        
 
     if return_pauli_z:
         final_state = state[:N]
@@ -110,7 +147,6 @@ def one_SQA_run(J, h, trans_fld_sched, M, T, field_cycling = 1, sd = None, init_
             if temp_E < final_E:
                 final_state = temp_state.copy()
                 final_E = temp_E
-        # return final_state, flip_count, non_flip_count
         return final_state
     else:
         return state
@@ -123,8 +159,11 @@ def main():
 
     sd = 7
 
-    np.random.seed(0)
-    num_par = np.random.normal(0, 1, 20)
+    np.random.seed(sd)
+    num_par = np.random.normal(0, 1, 5)
+    # num_par = np.zeros(3)
+    # for i in range(3):
+    #     num_par[i] = i+1
     N = len(num_par)
 
     J = np.outer(num_par, num_par)
@@ -135,14 +174,18 @@ def main():
     J = J * norm_coef
     h = h * norm_coef
 
-    M = 20
+    M = 5
     T = 0.05
 
-    steps = 1000
+    steps = 10
     Gamma0 = 10
     Gamma1 = 1e-8
     decay_rate = (Gamma1 / Gamma0)**(1/(steps-1))
     schedule = [Gamma0 * decay_rate**i for i in range(steps)]
+    # J_plus0 = 0
+    # J_plus1 = 0.5
+    # increase_rate = (J_plus1 - J_plus0) / steps
+    # schedule = [J_plus0 + increase_rate * i for i in range(steps)]
 
 
     # SQA

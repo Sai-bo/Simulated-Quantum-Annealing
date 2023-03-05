@@ -21,6 +21,6 @@ def solver(J, h):
 
         if E < E_min:
             E_min = E
-            final_state = state.copy()
+            final_state = np.copy(state)
 
     return final_state
