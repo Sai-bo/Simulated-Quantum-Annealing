@@ -1,7 +1,6 @@
 import numpy as np
 # import numba as nb
 import time
-from solver import solver
 from matplotlib import pyplot as plt
 
 def one_MA_run(J, h, temp_sched, c_k = None, p_k = None, sd = None, init_state = None):
@@ -14,6 +13,10 @@ def one_MA_run(J, h, temp_sched, c_k = None, p_k = None, sd = None, init_state =
         h (1-D array of float): The vector representing the local field of the problem.
         temp_sched (list[float]): The temparature schedule for SA.
                                   The number of iterations is implicitly the length of temp_schedule.
+        c_k (1-D array of float): momentum scaling factor. Multiply momentum coupling by this factor.
+                                  If None, c_k = [1, 1, ...]
+        p_k (1-D array of float): dropout probability. Randomly decrease momentum coupling to zero with this probability.
+                                  If None, p_k = [0, 0, ...]
         sd (default=None): Seed for numpy.random.default_rng().
         init_state (1-D array of int, default=None): The boolean vector representing the initial state.
                                                      If None, a random state is chosen.
@@ -26,13 +29,13 @@ def one_MA_run(J, h, temp_sched, c_k = None, p_k = None, sd = None, init_state =
     N = J.shape[0]
     steps = len(temp_sched)
 
-    # normalize
+    ### normalize
     # norm_coef = np.sqrt(N / (np.sum(J**2) + 0.5 * np.sum(h**2))) # normalization
     # J = J * norm_coef
     # h = h * norm_coef
     J = 0.5 * (J + J.T)
 
-    # initialize momentum couplings
+    ### initialize momentum couplings
     la = np.max(np.linalg.eigvals(-J))
     w = np.zeros(N)
     coupling_sum = np.zeros(N)
@@ -53,13 +56,7 @@ def one_MA_run(J, h, temp_sched, c_k = None, p_k = None, sd = None, init_state =
         else:
             w[i] = la / 2
 
-    # w = np.copy(coupling_sum)
-
-    print(la)
-    print(coupling_sum)
-    print(w)
-
-    # initial state
+    ### initial state
     if init_state is None:
         state = 2 * rng.binomial(1, 0.5, N) - np.ones(N)
         last_state = 2 * rng.binomial(1, 0.5, N) - np.ones(N)
@@ -67,7 +64,7 @@ def one_MA_run(J, h, temp_sched, c_k = None, p_k = None, sd = None, init_state =
         state = init_state
         last_state = state
 
-    # momentum scaling factor and dropout probability
+    ### momentum scaling factor and dropout probability
     if c_k is None:
         c_k = np.ones(steps)
     if p_k is None:
@@ -75,7 +72,7 @@ def one_MA_run(J, h, temp_sched, c_k = None, p_k = None, sd = None, init_state =
 
     record = []
 
-    # annealing
+    ### annealing
     for i in range(steps):
         T_k = temp_sched[i]
         w_k = np.multiply(w * c_k[i], rng.binomial(1, 1 - p_k[i], N))
@@ -86,8 +83,6 @@ def one_MA_run(J, h, temp_sched, c_k = None, p_k = None, sd = None, init_state =
         state = temp_state
 
         record.append(np.sum(np.multiply(J, np.outer(state, state))) + np.dot(h, state))
-
-        # print(np.sum(np.multiply(J, np.outer(state, state))) + np.dot(h, state))
 
     return state, last_state, record
 
@@ -103,10 +98,6 @@ def temparature_schedule(init_temp, decay_rate, steps, mode = 'EXPONENTIAL'):
         schedule = [init_temp - decay_rate * i for i in range(steps)]
         return schedule
 
-    # if mode == 'INVERSE':
-
-    #     return schedule
-
     if mode == 'LOGARITHM':
         schedule = [init_temp * np.log(2) / np.log(2 + i) for i in range(steps)]
         return schedule
@@ -116,7 +107,7 @@ def temparature_schedule(init_temp, decay_rate, steps, mode = 'EXPONENTIAL'):
 def main():
     np.random.seed(11)
 
-    density = 0.6
+    # density = 0.6
     N = 10
 
     # J = np.random.binomial(1, density, (N, N))
@@ -129,30 +120,21 @@ def main():
     # J = J * norm_coef
     # h = h * norm_coef
 
-    # J = np.array([[0, 1, 1, 0, 1], [1, 0, 0, 1, 0], [1, 0, 0, 0, 1], [0, 1, 0, 0, 0], [1, 0, 1, 0, 0]])
-    # h = np.array([0, 0, 0, 0, 0])
-
-
-    init_temp = 100
+    ### annealing steps
     steps = 3000
 
-    # temparature schedule
+    ### temparature schedule
+    # init_temp = 100
     # schedule = temparature_schedule(init_temp, 0.0001, steps, mode='LOGARITHM')
     schedule = [10 / np.log(2 + i) for i in range(steps)]
-    # plt.plot(schedule)
-    # plt.show()
 
-    # momentum scaling factor
+    ### momentum scaling factor
     msf = [min(1, np.sqrt((i + 1) / 1000)) for i in range(steps)]
-    # plt.plot(msf)
-    # plt.show()
 
-    # drop out probability
+    ### drop out probability
     dropout = [max(0, 0.5 - ((i + 1) / 2000)) for i in range(steps)]
-    # plt.plot(dropout)
-    # plt.show()
 
-    # annealing test
+    ### annealing test
     state, last_state, record = one_MA_run(J, h, schedule, msf, dropout)
     E_MA = np.sum(np.multiply(J, np.outer(state, state))) + np.dot(h, state)
     print(state)
@@ -160,10 +142,10 @@ def main():
     print(E_MA)
 
 
-    right_sol = solver(J, h)
-    E_solver = np.sum(np.multiply(J, np.outer(right_sol, right_sol))) + np.dot(h, right_sol)
-    print(right_sol)
-    print(E_solver)
+    # right_sol = solver(J, h)
+    # E_solver = np.sum(np.multiply(J, np.outer(right_sol, right_sol))) + np.dot(h, right_sol)
+    # print(right_sol)
+    # print(E_solver)
 
     
     plt.plot(record)
