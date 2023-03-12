@@ -2,7 +2,7 @@ import numpy as np
 # import numba as nb
 import time
 from matplotlib import pyplot as plt
-from solver import solver
+from solver import *
 
 def one_MA_run(J, h, temp_sched, c_k = None, p_k = None, sd = None, init_state = None):
     """
@@ -75,9 +75,10 @@ def one_MA_run(J, h, temp_sched, c_k = None, p_k = None, sd = None, init_state =
         p_k = np.zeros(steps)
 
     record = []
-    E_best = 1e7
 
     ### annealing
+    state_best = []
+    E_best = -999999
     for i in range(steps):
         T_k = temp_sched[i]
         w_k = np.multiply(w * c_k[i], rng.binomial(1, 1 - p_k[i], N))
@@ -87,9 +88,9 @@ def one_MA_run(J, h, temp_sched, c_k = None, p_k = None, sd = None, init_state =
         last_state = state
         state = temp_state
 
-        E_current = np.sum(np.multiply(-J, np.outer(state, state))) + np.dot(h, state)
+        E_current = np.sum(np.multiply(J, np.outer(state, state))) + np.dot(h, state)
         record.append(E_current)
-        if E_current < E_best:
+        if E_current > E_best:
             E_best = E_current
             state_best = state
             last_state_best = last_state
@@ -115,13 +116,16 @@ def temparature_schedule(init_temp, decay_rate, steps, mode = 'EXPONENTIAL'):
 ##########################################################################################################
 
 def main():
-    np.random.seed(11)
+    ##########################################################################################################
+
+    # np.random.seed(100)
 
     # density = 0.6
     N = 10
 
     # J = np.random.binomial(1, density, (N, N))
     J = np.random.uniform(-1, 1, (N, N))
+    # J = np.random.randint(low=-1,high=2, size=(N,N))
     np.fill_diagonal(J, 0)
     J = 0.5 * (J + J.T)
     h = np.zeros(N)
@@ -157,10 +161,9 @@ def main():
     print(right_sol)
     print(E_solver)
 
-    
-    plt.plot(record, linewidth=0.1)
+    plt.figure(figsize=(15, 3))
+    plt.plot(record)
     plt.show()
-
 
 
 if __name__ == "__main__":
