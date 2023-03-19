@@ -65,9 +65,6 @@ def one_MA_run(J, h, temp_sched, c_k = None, p_k = None, sd = None, init_state =
         state = init_state
         last_state = state
 
-    state_best = state
-    last_state_best = last_state
-
     ### momentum scaling factor and dropout probability
     if c_k is None:
         c_k = np.ones(steps)
@@ -135,7 +132,7 @@ def main():
     # h = h * norm_coef
 
     ### annealing steps
-    steps = 30000
+    steps = 3000
 
     ### temparature schedule
     # init_temp = 100

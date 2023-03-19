@@ -38,19 +38,24 @@ def bm_MA(schedule, input_path):
 if __name__ == "__main__":
 
     ### annealing steps
-    steps = 100000
+    steps = 20000
 
     ### temperature schedule
-    schedule = [10 / np.log(2 + i) for i in range(steps)]
+    # schedule = [10 / np.log(2 + i) for i in range(steps)]
+    schedule = [100 * (1 - 0.001) ** i for i in range(steps)]
+    print(schedule)
+
+    ### factor
+    factor = 4
 
     ### momentum scaling factor
-    msf = [min(1, np.sqrt((i + 1) / 10000)) for i in range(steps)]
+    msf = [min(1, np.sqrt((i + 1) / (steps / factor))) for i in range(steps)]
 
     ### drop out probability
-    dropout = [max(0, 0.5 - ((i + 1) / 20000)) for i in range(steps)]
+    dropout = [max(0, 0.5 - ((i + 1) / (2 * steps / factor))) for i in range(steps)]
 
     ### benchmark times
-    bm_times = 10
+    bm_times = 100
 
 ##########################################################################################################
 
@@ -60,9 +65,9 @@ if __name__ == "__main__":
     problem_size = [60]
 
     for size in problem_size:
-        for index in range(10):
+        for index in range(1):
             input_path.append(f"./data/g05/g05_{size}.{index}")
-            output_path.append(f"./result/MA/g05_{size}.{index}_{steps}")
+            output_path.append(f"./result/MA/g05_{size}.{index}_{steps}_{factor}_exp")
 
 ##########################################################################################################
 
