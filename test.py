@@ -1,5 +1,5 @@
-import numpy as np
+steps = 1000
 
-N = 20
-gamma_k = np.random.gamma(shape=1, scale=1, size=N)
-print(gamma_k)
+schedule = [100 * (1 - 0.01) ** i for i in range(steps)]
+
+print(schedule)

@@ -1,10 +1,6 @@
 import numpy as np
-# import numba as nb
-import time
-from matplotlib import pyplot as plt
-from solver import solver
 
-def one_MA_run(J, h, temp_sched, c_k = None, p_k = None, sd = None, init_state = None):
+def one_MA_tts_run(J, h, temp_sched, solution, c_k = None, p_k = None, sd = None, init_state = None):
     """
     One momentum annealing run over the full temparature schedule.
     The goal is to find a state such that sum(J[i, j]*state[i]*state[j]) + sum(h[i]*state[i]) is minimized.
@@ -93,75 +89,14 @@ def one_MA_run(J, h, temp_sched, c_k = None, p_k = None, sd = None, init_state =
             E_best = E_current
             state_best = state
             last_state_best = last_state
+        
+        E = 0
+        for i in range(N):
+            for j in range(N):
+                if J[i][j] == -1:
+                    E += (1 - (state_best[i] * state_best[j])) / 2
+        
+        if E == solution:
+            return state_best, last_state_best, record, steps
 
-    return state_best, last_state_best, record
-
-
-##########################################################################################################
-
-def temparature_schedule(init_temp, decay_rate, steps, mode = 'EXPONENTIAL'):
-    if mode == 'EXPONENTIAL':
-        schedule = [init_temp * (1 - decay_rate) ** i for i in range(steps)]
-        return schedule
-
-    if mode == 'LINEAR':
-        schedule = [init_temp - decay_rate * i for i in range(steps)]
-        return schedule
-
-    if mode == 'LOGARITHM':
-        schedule = [init_temp * np.log(2) / np.log(2 + i) for i in range(steps)]
-        return schedule
-
-##########################################################################################################
-
-def main():
-    np.random.seed(11)
-
-    # density = 0.6
-    N = 10
-
-    # J = np.random.binomial(1, density, (N, N))
-    J = np.random.uniform(-1, 1, (N, N))
-    np.fill_diagonal(J, 0)
-    J = 0.5 * (J + J.T)
-    h = np.zeros(N)
-
-    # norm_coef = np.sqrt(J.shape[0] / (np.sum(J**2) + 0.5 * np.sum(h**2))) # normalization
-    # J = J * norm_coef
-    # h = h * norm_coef
-
-    ### annealing steps
-    steps = 30000
-
-    ### temparature schedule
-    # init_temp = 100
-    # schedule = temparature_schedule(init_temp, 0.0001, steps, mode='LOGARITHM')
-    schedule = [10 / np.log(2 + i) for i in range(steps)]
-
-    ### momentum scaling factor
-    msf = [min(1, np.sqrt((i + 1) / 1000)) for i in range(steps)]
-
-    ### drop out probability
-    dropout = [max(0, 0.5 - ((i + 1) / 2000)) for i in range(steps)]
-
-    ### annealing test
-    state, last_state, record = one_MA_run(-J, h, schedule, msf, dropout)
-    E_MA = np.sum(np.multiply(J, np.outer(state, state))) + np.dot(h, state)
-    print(state)
-    print(last_state)
-    print(E_MA)
-
-
-    right_sol = solver(J, h)
-    E_solver = np.sum(np.multiply(J, np.outer(right_sol, right_sol))) + np.dot(h, right_sol)
-    print(right_sol)
-    print(E_solver)
-
-    
-    plt.plot(record, linewidth=0.1)
-    plt.show()
-
-
-
-if __name__ == "__main__":
-    main()
+    return state_best, last_state_best, record, steps, E

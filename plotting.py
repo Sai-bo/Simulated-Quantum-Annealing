@@ -16,12 +16,12 @@ with open("./data/g05/solution.txt", "r", newline='') as solution_file:
 accuracy = np.zeros(1001)
 size = 60
 index = 0
-steps = 20000
-factor = 4
+steps = 100000
+factor = 100000
+mode = "exp"
 
 
-
-with open(f"result\MA\g05_{size}.{index}_{steps}_{factor}_exp", "r", newline='') as output:
+with open(f"result\MA_result\g05_{size}.{index}_{steps}_{factor}_{mode}", "r", newline='') as output:
     rows = csv.reader(output)
 
     for row in list(rows)[1:]:
@@ -42,89 +42,43 @@ plt.show()
 
 ##########################################################################################################
 
-# # Time
+# Time
 
-# # problem_size = np.array([60, 80, 100])
-# steps = np.array([200, 400, 600, 800, 1000])
+# problem_size = np.array([60, 80, 100])
+steps = np.array([300, 3000, 10000, 30000])
 
-# # x = problem_size.repeat([1000, 1000, 1000])
-# x = steps.repeat([100, 100, 100, 100, 100])
-# time = []
-# average_time = []
-# # for size in problem_size:
-# for step in steps:
-#     total_time = 0
-#     for index in range(1):
-#         # with open(f"./result/g05_G/g05_{size}.{index}_output.csv", "r", newline="") as output:
-#         with open(f"./result/new_result/{step}_20_0.03_old.csv", "r", newline="") as output:
-#             rows = csv.reader(output)
-#             for row in list(rows)[1:]:
-#                 time.append(float(row[2]))
-#                 total_time += float(row[2])
+# x = problem_size.repeat([1000, 1000, 1000])
+x = steps.repeat([100, 100, 100, 100])
+time = []
+average_time = []
+# for size in problem_size:
+for step in steps:
+    total_time = 0
+    for index in range(1):
+        # with open(f"./result/g05_G/g05_{size}.{index}_output.csv", "r", newline="") as output:
+        with open(f"result\MA_result\g05_60.0_{step}_3_linear", "r", newline="") as output:
+            rows = csv.reader(output)
+            for row in list(rows)[1:]:
+                time.append(float(row[2]))
+                total_time += float(row[2])
 
-#     average_time.append(total_time / 100)
+    average_time.append(total_time / 100)
 
-# # m = np.polyfit(problem_size, average_time, 2)
-# m = np.polyfit(steps, average_time, 1)
+# m = np.polyfit(problem_size, average_time, 2)
+m = np.polyfit(steps, average_time, 1)
 
-# time_2 = []
-# average_time_2 = []
-# # for size in problem_size:
-# for step in steps:
-#     total_time_2 = 0
-#     for index in range(1):
-#         # with open(f"./result/g05_G/g05_{size}.{index}_output.csv", "r", newline="") as output:
-#         with open(f"./result/new_result/{step}_20_0.03_new.csv", "r", newline="") as output:
-#             rows = csv.reader(output)
-#             for row in list(rows)[1:]:
-#                 time_2.append(float(row[2]))
-#                 total_time_2 += float(row[2])
-
-#     average_time_2.append(total_time_2 / 100)
-
-# # m = np.polyfit(problem_size, average_time, 2)
-# m_2 = np.polyfit(steps, average_time_2, 1)
-
-# plt.title("Time")
-# # plt.xlabel("Problem size")
-# plt.xlabel("steps")
-# plt.ylabel("time (s)")
-# # plt.xticks([60, 80, 100])
-# plt.xticks([200, 400, 600, 800, 1000])
-# plt.scatter(x, time, s=10)
-# plt.scatter(x, time_2, s=10)
-# # plt.scatter(problem_size, average_time, s=30)
-# plt.scatter(steps, average_time, s=30)
-# plt.scatter(steps, average_time_2, s=30)
-# # plt.plot(np.array(range(55, 105)), m[0]*np.multiply(np.array(range(55, 105)), np.array(range(55, 105))) + m[1]*np.array(range(55, 105)) + m[2], color="orange")
-# plt.plot(np.array(range(90, 1010)), m[0]*np.array(range(90, 1010)) + m[1], color="orange")
-# plt.plot(np.array(range(90, 1010)), m_2[0]*np.array(range(90, 1010)) + m_2[1], color="orange")
-# plt.show()
-
-# M = np.array([5, 10, 20, 30])
-
-# x = M.repeat([100, 100, 100, 100])
-# time = []
-# average_time = []
-# for m in M:
-#     with open(f"./result/g05/{m}/g05_100.0_output.csv", "r", newline="") as output:
-#         total_time = 0
-#         rows = csv.reader(output)
-#         for row in list(rows)[1:]:
-#             total_time += float(row[2])
-#             time.append(float(row[2]))
-#     average_time.append(total_time / 100)
-
-# m, k = np.polyfit(M, average_time, 1)
-
-# plt.title("Time")
-# plt.xlabel("M")
-# plt.ylabel("time (s)")
-# plt.xticks([5, 10, 20, 30])
-# plt.scatter(x, time, s=10)
-# plt.scatter(M, average_time, s=30)
-# plt.plot(M, m*M + k, color="orange")
-# plt.show()
+plt.title("Time")
+# plt.xlabel("Problem size")
+plt.xlabel("steps")
+plt.ylabel("time (s)")
+# plt.xticks([60, 80, 100])
+plt.xticks([300, 3000, 10000, 30000])
+plt.scatter(x, time, s=10)
+# plt.scatter(problem_size, average_time, s=30)
+plt.scatter(steps, average_time, s=30)
+# plt.plot(np.array(range(55, 105)), m[0]*np.multiply(np.array(range(55, 105)), np.array(range(55, 105))) + m[1]*np.array(range(55, 105)) + m[2], color="orange")
+plt.plot(np.array(range(200, 30100)), m[0]*np.array(range(200, 30100)) + m[1], color="orange")
+plt.show()
 
 ##########################################################################################################
 
